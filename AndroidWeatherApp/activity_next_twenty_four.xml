@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+    tools:context="com.mycompany.hw9.NextTwentyFourHours"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:id="@+id/header">
+
+    <TableLayout android:layout_width="fill_parent"
+    android:layout_height="fill_parent"
+        android:orientation="vertical"
+    android:id="@+id/tableLayout">
+
+
+
+        <TableRow
+            android:layout_width="fill_parent"
+            android:layout_height="fill_parent"
+            android:background="@color/colorBlueBackGround"
+            android:paddingBottom="15dp">
+
+            <TextView
+                android:id="@+id/textViewTime"
+                android:layout_height="match_parent"
+                android:text="Time"
+                android:layout_width="0dp"
+                android:gravity="center"
+                android:textSize="20sp"
+                android:layout_weight="1"/>
+            <TextView
+                android:id="@+id/textViewSummary"
+                android:layout_height="match_parent"
+                android:text="Summary"
+                android:layout_width="0dp"
+                android:gravity="center"
+                android:textSize="20sp"
+                android:layout_weight="1"/>
+            <TextView
+                android:id="@+id/textViewTemperature"
+                android:layout_height="match_parent"
+                android:layout_width="0dp"
+                android:gravity="center"
+                android:layout_weight="1"/>
+
+        </TableRow>
+        </TableLayout>
+    </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/expandable">
+
+            <ScrollView
+                android:layout_weight="1"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content">
+
+                <TableLayout android:layout_width="fill_parent"
+                    android:layout_height="0dp"
+                    android:orientation="vertical"
+                    android:id="@+id/tableLayoutNew">
+                    </TableLayout>
+
+            </ScrollView>
+        </LinearLayout>
+
+
+</LinearLayout>

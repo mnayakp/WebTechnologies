@@ -1,0 +1,888 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>Bootstrap Example</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+  <script src="http://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js"></script>
+  <script type="text/javascript" src="http://cdn.jsdelivr.net/jquery.validation/1.14.0/jquery.validate.min.js"></script>
+
+  <link rel="stylesheet" href="http://openlayers.org/en/v3.0.0/css/ol.css" type="text/css">
+  <script src="http://openlayers.org/en/v3.0.0/build/ol.js" type="text/javascript"></script>
+
+  <script src="http://openlayers.org/api/OpenLayers.js"></script>
+  <script type="text/javascript">
+  var forecast;
+  var unitTemp;
+  var iValues;
+
+  $(document).ready(function(){
+    $("#signupForm").validate({
+      rules:{ street:"required",
+      city:"required",
+      state:{
+        selectOption: true
+      }
+    },
+    messages:{ street:"Please enter the street address",
+    city:"Please enter the city",
+  },
+  submitHandler : submitFormrequest
+});
+jQuery.validator.addMethod("selectOption",function(value){
+  return (value !== "-1");
+}," Select your state");
+$("#searchOutput")[0].hidden =true;
+
+});
+function mapWM(lat,lon){
+  $("#mapSpace")[0].innerHTML = "";
+  var lonlat = new OpenLayers.LonLat(lat, lon);
+
+  var map = new OpenLayers.Map("mapSpace");
+  var mapnik = new OpenLayers.Layer.OSM();
+
+  var layer_cloud = new OpenLayers.Layer.XYZ(
+    "clouds",
+    "http://${s}.tile.openweathermap.org/map/clouds/${z}/${x}/${y}.png",
+    {
+      isBaseLayer: false,
+      opacity: 0.7,
+      sphericalMercator: true
+    }
+  );
+
+  var layer_precipitation = new OpenLayers.Layer.XYZ(
+    "precipitation",
+    "http://${s}.tile.openweathermap.org/map/precipitation/${z}/${x}/${y}.png",
+    {
+      isBaseLayer: false,
+      opacity: 0.7,
+      sphericalMercator: true
+    }
+  );
+
+
+  map.addLayers([mapnik, layer_precipitation, layer_cloud]);
+  map.setCenter(new OpenLayers.LonLat(lon,lat).transform('EPSG:4326','EPSG:3857'), 10);
+}
+function submitFormrequest(){
+  //if(!$("#street")[0].value ||  !$("#city")[0].value || !$("#state")[0].options[$("#state")[0].options.selectedIndex].value)
+  //return false;
+  $.ajax({
+    url:	'index.php',
+
+    data:	{
+      street : $("#street")[0].value,
+      city : $("#city")[0].value,
+      state : $("#state")[0].options[$("#state")[0].options.selectedIndex].value,
+      degree : (document.getElementsByName("degree")[0].checked)?"us":"si"
+    },
+    type:	'GET',
+    success:	function(output)	{
+      forecast = JSON.parse(output);
+      //$("#searchOutput")[0].innerHTML = "";
+
+      var nextTFStr = "";
+      iValues = {
+        "clear-day":"http://cs-server.usc.edu:45678/hw/hw8/images/clear.png",
+        "clear-night": "http://cs-server.usc.edu:45678/hw/hw8/images/clear_night.png",
+        "rain": "http://cs-server.usc.edu:45678/hw/hw8/images/rain.png",
+        "snow": "http://cs-server.usc.edu:45678/hw/hw8/images/snow.png",
+        "sleet": "http://cs-server.usc.edu:45678/hw/hw8/images/sleet.png",
+        "wind": "http://cs-server.usc.edu:45678/hw/hw8/images/wind.png",
+        "fog": "http://cs-server.usc.edu:45678/hw/hw8/images/fog.png",
+        "cloudy": "http://cs-server.usc.edu:45678/hw/hw8/images/cloudy.png",
+        "partly-cloudy-day": "http://cs-server.usc.edu:45678/hw/hw8/images/cloud_day.png",
+        "partly-cloudy-night": "http://cs-server.usc.edu:45678/hw/hw8/images/cloud_night.png"
+      }
+
+      var precipitation = forecast.currently.precipIntensity;
+      if($("input:radio[name='degree']:checked").val() == "si")
+      {
+        var precipitationSi = (precipitation * 0.039);
+        var precip = Math.round(precipitationSi);
+      }
+      var prec;
+
+      if(precipitation >= 0 && precipitation < 0.002)
+      {
+        prec = "None";
+      }
+
+      else if(precipitation >= 0.002 && precipitation < 0.017)
+      {
+        prec = "Very Light";
+
+      }
+
+      else if(precipitation >= 0.017 && precipitation < 0.1)
+      {
+        prec = "Light";
+
+      }
+      else if(precipitation >= 0.1 && $precipitation < 0.4)
+      {
+        prec = "Moderate";
+      }
+      else if($precipitation >= 0.4)
+      {
+        prec = "Heavy";
+      }
+
+      if($("input:radio[name='degree']:checked").val() == "si")
+      {
+        unitTemp = '&deg;C';
+        var unitWind = 'm/s';
+        var unitVisible = 'km';
+        var unitPressure = 'hPa';
+      }else {
+        unitTemp = '&deg;F';
+        var unitWind = 'mph';
+        var unitVisible = 'mi';
+        var unitPressure ='mb';
+      }
+
+      function timeConversion(timestamp){
+        var date_format = '12';
+        var d       = new Date((timestamp)*1000);
+        var utc = d.getTime() + (d.getTimezoneOffset() * 60000);
+        var date = new Date(utc + ((forecast.offset) * 3600000));
+        var hour    = date.getHours();
+        var minutes     = date.getMinutes();
+        var result  = hour;
+        var ext     = '';
+        if(date_format == '12'){
+          if(hour > 12){
+            ext = 'PM';
+            hour = (hour - 12);
+
+            if(hour < 10){
+              result = "0" + hour;
+            }else if(hour == 12){
+              hour = "00";
+              ext = 'AM';
+            }
+          }
+          else if(hour < 12){
+            result = ((hour < 10) ? "0" + hour : hour);
+            ext = 'AM';
+          }else if(hour == 12){
+            ext = 'PM';
+          }
+        }
+
+        if(minutes < 10){
+          minutes = "0" + minutes;
+        }
+
+        result = result + ":" + minutes + ' ' + ext;
+        return result;
+      }
+      sunRiseTabOne = timeConversion(forecast.daily.data[0].sunriseTime);
+      sunSetTabOne = timeConversion(forecast.daily.data[0].sunsetTime);
+
+      fbState=document.getElementById("state").value;
+
+      $("#Precipitation")[0].innerHTML = prec;
+      $("#ChanceOfRain")[0].innerHTML = Math.round((forecast.currently.precipProbability)) + "%";
+      $("#WindSpeed")[0].innerHTML = forecast.currently.windSpeed + unitWind ;
+      $("#DewPoint")[0].innerHTML = forecast.currently.dewPoint + unitTemp;
+      $("#Humidity")[0].innerHTML = parseInt((forecast.currently.humidity)*100) + "%";
+      $("#Visibility")[0].innerHTML = forecast.currently.visibility + unitVisible;
+      $("#Sunrise")[0].innerHTML = sunRiseTabOne;
+      $("#Sunset")[0].innerHTML = sunSetTabOne;
+      $("#rightNowImage")[0].src = iValues[forecast.currently.icon];
+      $("#rightHead")[0].innerHTML = forecast.currently.summary + " in " + document.getElementById("city").value + "," + document.getElementById("state").value;
+      $("#rightDetail")[0].innerHTML = Math.round(forecast.currently.temperature)  + unitTemp;
+      $("#rightTemp")[0].innerHTML = "<span style='color:blue'>L:" + Math.round(forecast.daily.data[0].temperatureMax) + unitTemp + "</span><span style='color:black'>|</span><span style='color:green'>" + "H:" + Math.round(forecast.daily.data[0].temperatureMin) + unitTemp + "</span>";
+
+
+
+      nextTFStrHeader = "<tr><th><center>Time</center></th><th><center>Summary</center></th><th><center>Cloud Cover</center></th><th><center>Temp"+unitTemp+"</center></th><th><center>View Details</center></th></tr>";
+      $("#tableHead").html(nextTFStrHeader);
+
+
+
+
+      for(var i = 0 ; i < 24 ; i++){
+
+        timeTabTwo = timeConversion(forecast.hourly.data[i].time);
+
+        nextTFStr += "<tr><td><center>" + timeTabTwo
+        +
+        "</center></td><td><center>" +
+        "<img src='"+iValues[forecast.hourly.data[i].icon]+"' width='50px'/>" +
+        "</center></td><td><center>" +
+        parseInt((forecast.hourly.data[i].cloudCover)*100) + "%" +
+        "</center></td><td><center>" +
+        forecast.hourly.data[i].temperature +
+        "</center></td><td><center>" +
+        "<a class='' data-toggle='collapse' data-target='#expandData"+i+"' aria-expanded='false' aria-controls='collapseExample'>" +
+        "<span class='glyphicon glyphicon-plus'></span></a>" +
+        "</td></tr></center>"+
+        "<tr class='collapse' id='expandData"+i+"'><td colspan='5'><table class='table'>"+
+        "<tr><th><center>Wind</center></th><th><center>Humidity</center></th><th><center>Visibility</center></th><th><center>Pressure</center></th></tr><tr>"+
+        "<td><center>"+
+        Math.round(forecast.hourly.data[i].windSpeed) + unitWind +
+        "</center></td><td><center>"+
+        parseInt((forecast.hourly.data[i].humidity)*100) + "%" +
+        "</center></td><td><center>"+
+        forecast.hourly.data[i].visibility + unitVisible +
+        "</center></td><td><center>"+
+        forecast.hourly.data[i].pressure + unitPressure +
+        "</center></td></tr></table></td></tr>";
+      }
+      $("#tableContent").html(nextTFStr);
+
+
+      for(var i = 1; i < 8; i++){
+
+        var d = new Date((forecast.daily.data[i].time)*1000);
+        var weekday=new Array("Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday");
+        var monthname=new Array("Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec");
+        var day = weekday[d.getDay()] + " ";
+        var month = monthname[d.getMonth()] + " ";
+        var date = d.getDate();
+
+        sunRiseTabThree = timeConversion(forecast.daily.data[i].sunriseTime);
+        sunSetTabThree = timeConversion(forecast.daily.data[i].sunsetTime);
+
+        nextSDStr = "";
+        nextSDStr = "<div class = 'text-center modalPadBottom modalContainerText'>" +
+        day +
+        "</div><div class = 'text-center modalPadBottom modalContainerText'>"+
+        month + date +
+        "</div><div class = 'text-center modalPadBottom'>"+
+        "<img src='"+iValues[forecast.hourly.data[i].icon]+"' width='50px'/>" +
+        "</div><div class='modalPadBottom modalContainerText'><center>Min Temp</center></div><div class = 'text-center'><h2>"+
+        parseInt(forecast.daily.data[i].temperatureMin) + "<sup>&deg</sup></h2>" +
+        "</div><div class='modalPadBottom modalContainerText'><center>Max Temp</center> </div><div class = 'text-center modalPadBottom'><h2>"+
+        parseInt(forecast.daily.data[i].temperatureMax) + "<sup>&deg</sup></h2>" +
+        "</div>"
+        switch(i){
+          case 1:
+          $("#one").html(nextSDStr);
+          break;
+          case 2:
+          $("#two").html(nextSDStr);
+          break;
+          case 3:
+          $("#three").html(nextSDStr);
+          break;
+          case 4:
+          $("#four").html(nextSDStr);
+          break;
+          case 5:
+          $("#five").html(nextSDStr);
+          break;
+          case 6:
+          $("#six").html(nextSDStr);
+          break;
+          case 7:
+          $("#seven").html(nextSDStr);
+          break;
+        }
+
+        cityHeader=$('#city').val();
+        DayOneData = "<div class='modal-header'> \
+        <button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>\
+        <h4 class='modal-title' id='gridSystemModalLabel'>Weather in " + cityHeader  + " " + "on " + month + date + "</h4></div><div class='modal-body'><div class='row'><center><img src='"+iValues[forecast.hourly.data[i].icon]+"' width=100 height=80/></center></div><br/>\
+        <div class='row'><center><p style='font-size:30px'>"+day+":"+"<span style='color:orange'>"+forecast.daily.data[i].summary+"</span></p></center></div>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Sunrise Time</b></center><br/><center>"+sunRiseTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Sunset Time</b></center><br/><center>"+sunSetTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Humidity</b></center><br/><center>"+forecast.hourly.data[i].humidity + "%" +"</center></div>\
+        </div><br/>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Wind Speed</b></center><br/><center>"+forecast.hourly.data[i].windSpeed + "mph"+"</center></div>\
+        <div class='col-sm-4'><b><center>Visibility</b></center><br/><center>"+forecast.hourly.data[i].visibility + "mi" +"</center></div>\
+        <div class='col-sm-4'><b><center>Pressure</b></center><br/><center>"+forecast.hourly.data[i].pressure + "mb"+"</center></div>\
+        </div>\
+        </div>";
+
+        DayTwoData = "<div class='modal-header'> \
+        <button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>\
+        <h4 class='modal-title' id='gridSystemModalLabel'>Weather in " + cityHeader  + "on " + month + date + " </h4></div><div class='modal-body'><div class='row'><center><img src='"+iValues[forecast.hourly.data[i].icon]+"' width=100 height=80/></center></div><br/>\
+        <div class='row'><center><p style='font-size:30px'>"+day+":"+"<span style='color:orange'>"+forecast.daily.data[i].summary+"</span></p></center></div>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Sunrise Time</b></center><br/><center>"+sunRiseTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Sunset Time</b></center><br/><center>"+sunSetTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Humidity</b></center><br/><center>"+forecast.hourly.data[i].humidity + "%" +"</center></div>\
+        </div><br/>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Wind Speed</b></center><br/><center>"+forecast.hourly.data[i].windSpeed + "mph"+"</center></div>\
+        <div class='col-sm-4'><b><center>Visibility</b></center><br/><center>"+forecast.hourly.data[i].visibility + "mi" +"</center></div>\
+        <div class='col-sm-4'><b><center>Pressure</b></center><br/><center>"+forecast.hourly.data[i].pressure + "mb"+"</center></div>\
+        </div>\
+        </div>";
+
+        DayThreeData = "<div class='modal-header'> \
+        <button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>\
+        <h4 class='modal-title' id='gridSystemModalLabel'>Weather in " + cityHeader  + "on " + month + date + "</h4></div><div class='modal-body'><div class='row'><center><img src='"+iValues[forecast.hourly.data[i].icon]+"' width=100 height=80/></center></div><br/>\
+        <div class='row'><center><p style='font-size:30px'>"+day+":"+"<span style='color:orange'>"+forecast.daily.data[i].summary+"</span></p></center></div>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Sunrise Time</b></center><br/><center>"+sunRiseTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Sunset Time</b></center><br/><center>"+sunSetTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Humidity</b></center><br/><center>"+forecast.hourly.data[i].humidity + "%" +"</center></div>\
+        </div><br/>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Wind Speed</b></center><br/><center>"+forecast.hourly.data[i].windSpeed + "mph"+"</center></div>\
+        <div class='col-sm-4'><b><center>Visibility</b></center><br/><center>"+forecast.hourly.data[i].visibility + "mi" +"</center></div>\
+        <div class='col-sm-4'><b><center>Pressure</b></center><br/><center>"+forecast.hourly.data[i].pressure + "mb"+"</center></div>\
+        </div>\
+        </div>";
+
+        DayFourData = "<div class='modal-header'> \
+        <button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>\
+        <h4 class='modal-title' id='gridSystemModalLabel'>Weather in " + cityHeader  + "on " + month + date + "</h4></div><div class='modal-body'><div class='row'><center><img src='"+iValues[forecast.hourly.data[i].icon]+"' width=100 height=80/></center></div><br/>\
+        <div class='row'><center><p style='font-size:30px'>"+day+":"+"<span style='color:orange'>"+ forecast.daily.data[i].summary+" </span></p></center></div>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Sunrise Time</b></center><br/><center>"+sunRiseTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Sunset Time</b></center><br/><center>"+sunSetTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Humidity</b></center><br/><center>"+forecast.hourly.data[i].humidity + "%" +"</center></div>\
+        </div><br/>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Wind Speed</b></center><br/><center>"+forecast.hourly.data[i].windSpeed + "mph"+"</center></div>\
+        <div class='col-sm-4'><b><center>Visibility</b></center><br/><center>"+forecast.hourly.data[i].visibility + "mi" +"</center></div>\
+        <div class='col-sm-4'><b><center>Pressure</b></center><br/><center>"+forecast.hourly.data[i].pressure + "mb"+"</center></div>\
+        </div>\
+        </div>";
+
+        DayFiveData = "<div class='modal-header'> \
+        <button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>\
+        <h4 class='modal-title' id='gridSystemModalLabel'>Weather in " + cityHeader  + "on " + month + date + "</h4></div><div class='modal-body'><div class='row'><center><img src='"+iValues[forecast.hourly.data[i].icon]+"' width=100 height=80/></center></div><br/>\
+        <div class='row'><center><p style='font-size:30px'>"+day+":"+ "<span style='color:orange'>"+forecast.daily.data[i].summary+" </span></p></center></div>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Sunrise Time</b></center><br/><center>"+sunRiseTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Sunset Time</b></center><br/><center>"+sunSetTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Humidity</b></center><br/><center>"+forecast.hourly.data[i].humidity + "%" +"</center></div>\
+        </div><br/>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Wind Speed</b></center><br/><center>"+forecast.hourly.data[i].windSpeed + "mph"+"</div>\
+        <div class='col-sm-4'><b><center>Visibility</b></center><br/><center>"+forecast.hourly.data[i].visibility + "mi" +"</div>\
+        <div class='col-sm-4'><b><center>Pressure</b></center><br/><center>"+forecast.hourly.data[i].pressure + "mb"+"</div>\
+        </div>\
+        </div>";
+
+        DaySixData = "<div class='modal-header'> \
+        <button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>\
+        <h4 class='modal-title' id='gridSystemModalLabel'>Weather in " + cityHeader  + "on " + month + date + " </h4></div><div class='modal-body'><div class='row'><center><img src='"+iValues[forecast.hourly.data[i].icon]+"' width=100 height=80/></center></div><br/>\
+        <div class='row'><center><p style='font-size:30px'>"+day+":"+"<span style='color:orange'>"+forecast.daily.data[i].summary+"</span></p></center></div>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Sunrise Time</b></center><br/><center>"+sunRiseTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Sunset Time</b></center><br/><center>"+sunSetTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Humidity</b></center><br/><center>"+forecast.hourly.data[i].humidity + "%" +"</center></div>\
+        </div><br/>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Wind Speed</b></center><br/><center>"+forecast.hourly.data[i].windSpeed + "mph"+"</center></div>\
+        <div class='col-sm-4'><b><center>Visibility</b></center><br/><center>"+forecast.hourly.data[i].visibility + "mi" +"</center></div>\
+        <div class='col-sm-4'><b><center>Pressure</b></center><br/><center>"+forecast.hourly.data[i].pressure + "mb"+"</center></div>\
+        </div>\
+        </div>";
+
+        DaySevenData = "<div class='modal-header'> \
+        <button type='button' class='close' data-dismiss='modal' aria-label='Close'><span aria-hidden='true'>&times;</span></button>\
+        <h4 class='modal-title' id='gridSystemModalLabel'>Weather in " + cityHeader  + "on " + month + date + "</h4></div><div class='modal-body'><div class='row'><center><img src='"+iValues[forecast.hourly.data[i].icon]+"' width=100 height=80/></center></div><br/>\
+        <div class='row'><center><p style='font-size:30px'>"+day+":"+ "<span style='color:orange'>"+forecast.daily.data[i].summary+" </span></p></center></div>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Sunrise Time</b></center><br/><center>"+sunRiseTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Sunset Time</b></center><br/><center>"+sunSetTabThree+"</center></div>\
+        <div class='col-sm-4'><b><center>Humidity</b></center><br/><center>"+forecast.hourly.data[i].humidity + "%" +"</center></div>\
+        </div>\
+        <div class='row'>\
+        <div class='col-sm-4'><b><center>Wind Speed</b></center><br/><center>"+forecast.hourly.data[i].windSpeed + "mph"+"</center></div>\
+        <div class='col-sm-4'><b><center>Visibility</b></center><br/><center>"+forecast.hourly.data[i].visibility + "mi" +"</center></div>\
+        <div class='col-sm-4'><b><center>Pressure</b></center><br/><center>"+forecast.hourly.data[i].pressure + "mb"+"</center></div>\
+        </div>\
+        </div>";
+
+        switch(i){
+          case 1:
+          $("#day1Data").html(DayOneData);
+          break;
+          case 2:
+          $("#day2Data").html(DayTwoData);
+          break;
+          case 3:
+          $("#day3Data").html(DayThreeData);
+          break;
+          case 4:
+          $("#day4Data").html(DayFourData);
+          break;
+          case 5:
+          $("#day5Data").html(DayFiveData);
+          break;
+          case 6:
+          $("#day6Data").html(DaySixData);
+          break;
+          case 7:
+          $("#day7Data").html(DaySevenData);
+          break;
+
+
+        }
+      }
+
+      $("#searchOutput")[0].hidden = false;
+      mapWM(forecast.latitude, forecast.longitude);
+    }
+  });
+
+  return false;
+}
+
+window.fbAsyncInit = function() {
+  FB.init({
+    appId      : '1074459755920797',
+    xfbml      : true,
+    version    : 'v2.5'
+  });
+};
+
+(function(d, s, id){
+  var js, fjs = d.getElementsByTagName(s)[0];
+  if (d.getElementById(id)) {return;}
+  js = d.createElement(s); js.id = id;
+  js.src = "//connect.facebook.net/en_US/sdk.js";
+  fjs.parentNode.insertBefore(js, fjs);
+}(document, 'script', 'facebook-jssdk'));
+
+function share(){
+  FB.ui({
+    method: 'feed',
+    link: 'http://forecast.io',
+    caption : 'WEATHER INFORMATION FROM FORECAST.IO',
+    name:"Current Weather in " + "" + cityHeader+","+fbState,
+    description: forecast.currently.summary + "," + forecast.currently.temperature + unitTemp,
+    picture: iValues[forecast.currently.icon]
+  },
+  function(response){
+    if(response && !response.error_message)
+    alert("Posted Successfully");
+    else {
+      alert("Not Posted");
+    }
+  });
+
+}
+
+
+function clearFields()
+{
+  document.getElementById("street").value = "";
+  document.getElementById("city").value = "";
+  document.getElementById("state").value = "";
+  document.getElementsByName("degree").checked = false;
+  window.location.replace("HomeWork8.html");
+}
+</script>
+
+<style>
+.tab3Cont{
+  background-color: rgba(0,0,0,0);
+}
+
+@media (min-width:1199px){
+  .tab3Cont{
+    background-color: black;
+  }
+}
+.bgimage{
+  background: url('http://cs-server.usc.edu:45678/hw/hw8/images/bg.jpg') no-repeat center center fixed;
+  -webkit-background-size: cover;
+  -moz-background-size: cover;
+  -o-background-size: cover;
+  background-size: cover;
+}
+.containerBg{
+  background-color:rgba(0,0,0,0.2);
+  padding-bottom: 30px;
+  padding-top: 15px;
+}
+.buttonFont{
+  font-size: 8pt;
+}
+#mapSpace{
+  width:500px;
+  height:500px;
+}
+
+.inputWidth{
+  width: 100% !important;
+  padding: 0
+}
+.searchClear{
+  text-align: right;
+}
+.rowPaddRm{
+  padding-left: 0px;
+  padding-right: 0px;
+}
+.error{
+  color:red;
+
+}
+.formPad{
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+.defaultSelect{
+  color:black;
+}
+.remPad{
+  padding: 0px;
+  margin:10px;
+}
+.modalCont{
+  border-radius: 10px;
+  margin-top:10px;
+  margin-bottom:10px;
+  font-size: 12px;
+  min-width: 80px;
+}
+.modalHand{
+  overflow-wrap: break-word;
+}
+.modalPadBottom{
+  padding-bottom: 10px;
+}
+.modalContainerText{
+  font-weight: bold;
+  font-size: 13px;
+}
+.tabColor{
+  background-color: #EEEEEE;
+  border-top-left-radius: 5px;
+  border-top-right-radius: 5px;
+  cursor: pointer;
+}
+.tabPadding{
+  margin-left:-16px;
+}
+.tabPaddingOne{
+  margin-left:-15px;
+}
+
+</style>
+</head>
+
+<body class="bgimage" class="img-responsive">
+
+
+
+  <center><p><h3>Forecast Search</h3></p></center>
+
+  <div class="container">
+    <div class="row containerBg">
+      <form class="form-inline formPad" role="form" id="signupForm">
+
+        <div class="col-lg-3 col-md-12 col-sm-12 col-xs-12 form-group">
+          <label><span style='color:white'>Street Address</span><span style='color:red'>*</span></label><br/>
+          <input type="text" name="street" id="street" class="inputWidth form-control" placeholder="Enter street address">
+        </div>
+
+        <div class="col-lg-2 col-md-12 col-sm-12 col-xs-12  form-group">
+          <label><span style='color:white'>City</span><span style='color:red'>*</span></label><br/>
+          <input type="text" name="city" id="city" class="inputWidth form-control" placeholder="Enter the city name">
+        </div>
+
+        <div class="col-lg-2 col-md-12 col-sm-12 col-xs-12  form-group">
+          <label><span style='color:white'>State</span><span style='color:red'>*</span></label><br/>
+          <select name="state" id="state" class="inputWidth defaultSelect form-control" placeholder="Select your state"><option value="-1">Select Your State</option>
+            <option value="AL">Alabama</option>
+            <option value="AK">Alaska</option>
+            <option value="AZ">Arizona</option>
+            <option value="AR">Arkansas</option>
+            <option value="CA">California</option>
+            <option value="CO">Colorado</option>
+            <option value="CT">Connecticut</option>
+            <option value="DE">Delaware</option>
+            <option value="DC">District Of Columbia</option>
+            <option value="FL">Florida</option>
+            <option value="GA">Georgia</option>
+            <option value="HI">Hawaii</option>
+            <option value="ID">Idaho</option>
+            <option value="IL">Illinois</option>
+            <option value="IN">Indiana</option>
+            <option value="IA">Iowa</option>
+            <option value="KS">Kansas</option>
+            <option value="KY">Kentucky</option>
+            <option value="LA">Louisiana</option>
+            <option value="ME">Maine</option>
+            <option value="MD">Maryland</option>
+            <option value="MA">Massachusetts</option>
+            <option value="MI">Michigan</option>
+            <option value="MN">Minnesota</option>
+            <option value="MS">Mississippi</option>
+            <option value="MO">Missouri</option>
+            <option value="MT">Montana</option>
+            <option value="NE">Nebraska</option>
+            <option value="NV">Nevada</option>
+            <option value="NH">New Hampshire</option>
+            <option value="NJ">New Jersey</option>
+            <option value="NM">New Mexico</option>
+            <option value="NY">New York</option>
+            <option value="NC">North Carolina</option>
+            <option value="ND">North Dakota</option>
+            <option value="OH">Ohio</option>
+            <option value="OK">Oklahoma</option>
+            <option value="OR">Oregon</option>
+            <option value="PA">Pennsylvania</option>
+            <option value="RI">Rhode Island</option>
+            <option value="SC">South Carolina</option>
+            <option value="SD">South Dakota</option>
+            <option value="TN">Tennessee</option>
+            <option value="TX">Texas</option>
+            <option value="UT">Utah</option>
+            <option value="VT">Vermont</option>
+            <option value="VA">Virginia</option>
+            <option value="WA">Washington</option>
+            <option value="WV">West Virginia</option>
+            <option value="WI">Wisconsin</option>
+            <option value="WY">Wyoming</option>
+          </select>
+        </div>
+
+        <div class="col-lg-2 col-md-12 col-sm-12 col-xs-12  form-group">
+          <label>Degree</label><br>
+          <input type="radio" name="degree" checked="checked" value="us"> <span style='color:white'>Farhenheit</span>
+          <input type="radio" name="degree" value="si"><span style='color:white'>Celsius</span>
+        </div>
+
+        <div class="col-lg-1 col-md-12 col-sm-12 col-xs-12  form-group">
+
+        </div>
+
+        <div class="col-lg-2 col-md-12 col-sm-12 col-xs-12  form-group pull-right searchClear">
+          <button type="submit" class="btn btn-primary">
+            <span class="glyphicon glyphicon-search buttonFont"></span> Search
+          </button>
+          <button type="button" onclick="clearFields()" class="btn btn-default">
+            <span class="glyphicon glyphicon-refresh buttonFont"></span> Clear
+          </button>
+          <p> Powered by
+            <a href="http://forecast.io">
+              <img src="http://cs-server.usc.edu:45678/hw/hw8/images/forecast_logo.png" alt="FORECAST.IO" width="80px"/><br/>
+            </a></p>
+          </div>
+
+
+        </form>
+      </div>
+      <br/>
+      <hr>
+    </div>
+    <div class="container" id="searchOutput">
+      <div class="row">
+        <ul class="nav nav-pills" role="tablist">
+          <li role="presentation" class="active tabColor" ><a role="tab" data-toggle="tab" data-target="#rightNow">Right Now</a></li>
+          <li role="presentation" class="tabColor"><a role="tab" data-toggle="tab" data-target="#nextTF">Next 24 Hours</a></li>
+          <li role="presentation" class="tabColor"><a role="tab" data-toggle="tab" data-target="#nextSD">Next 7 Days</a></li>
+        </ul>
+      </div>
+
+
+      <div class="tab-content">
+        <div class="tab-pane active" role="tabpanel" id="rightNow">
+          <div class="row tabPaddingOne ">
+            <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12 ">
+              <div class="row " style="background-color: #f08080;text-align:center;padding-top:25px;">
+                <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12">
+                  <img src="" id="rightNowImage" width="150pt"/>
+                </div>
+                <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12">
+                  <div id="rightHead" style="color:white;font-weight:bold;font-size:100%;float:left;"></div>
+                  <div id="rightDetail" style="color:white;font-size:600%;float:left"></div>
+
+                  <div id="rightTemp" style="color:white;font-size:150%;float:left;"></div>
+                  <div style = 'float:right;line-height:-1.5px;padding-bottom:20px;'><img src="http://cs-server.usc.edu:45678/hw/hw8/images/fb_icon.png" onclick="share()" width="30px"/></div>
+
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-lg-12 rowPaddRm">
+                  <table class="table">
+                    <tr style = 'background-color:#ffffff;'>
+                      <td>Precipitation</td>
+                      <td id="Precipitation"></td>
+                    </tr>
+                    <tr style = 'background-color: #FFD8DE;'>
+                      <td>Chance Of Rain</td>
+                      <td id="ChanceOfRain"></td>
+                    </tr>
+                    <tr style = 'background-color:#ffffff;'>
+                      <td>Wind Speed</td>
+                      <td id="WindSpeed"></td>
+                    </tr>
+                    <tr style = 'background-color: #FFD8DE;'>
+                      <td>Dew Point</td>
+                      <td id="DewPoint"></td>
+                    </tr>
+                    <tr style = 'background-color:#ffffff;'>
+                      <td>Humidity</td>
+                      <td id="Humidity"></td>
+                    </tr>
+                    <tr style = 'background-color: #FFD8DE;'>
+                      <td>Visibility</td>
+                      <td id="Visibility"></td>
+                    </tr>
+                    <tr style = 'background-color:#ffffff;'>
+                      <td>Sunrise</td>
+                      <td id="Sunrise"></td>
+                    </tr>
+                    <tr style = 'background-color: #FFD8DE;'>
+                      <td>Sunset</td>
+                      <td id="Sunset"></td>
+                    </tr>
+                  </table>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-6 col-md-12 col-sm-12 col-xs-12 rowPaddRm">
+              <div id="mapSpace" style="width:100%;height:510px;">
+
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+
+        <div class="tab-pane tabPaddingOne" role="tabpanel" id="nextTF" style ='background-color:#FFFFFF'>
+          <table class="table">
+            <thead id="tableHead" style='background-color:#337ab7;color:#FFFFFF'>
+
+            </thead>
+            <tbody id="tableContent">
+
+            </tbody>
+          </table>
+        </div>
+
+
+        <div class="tab-pane " role="tabpanel" id="nextSD">
+          <div class="row tab3Cont tabPadding">
+            <div class="col-lg-1 col-lg-offset-0"></div>
+            <div class="col-lg-1 col-lg-offset-0"></div>
+            <div class="col-lg-1 col-md-12 col-sm-12 col-xs-12 modalHand" data-toggle="modal" data-target="#day1"><div class=""><div class="modalCont" id="one" style = 'background-color:#4169E1;color:white;'></div></div></div>
+            <div class="col-lg-1 col-md-12 col-sm-12 col-xs-12 modalHand" data-toggle="modal" data-target="#day2"><div class=""><div class="modalCont" id="two" style = 'background-color:#FF0000;color:white;'></div></div></div>
+            <div class="col-lg-1 col-md-12 col-sm-12 col-xs-12 modalHand" data-toggle="modal" data-target="#day3"><div class=""><div class="modalCont" id="three" style = 'background-color:#CD853F;color:white;'></div></div></div>
+            <div class="col-lg-1 col-md-12 col-sm-12 col-xs-12 modalHand" data-toggle="modal" data-target="#day4"><div class=""><div class="modalCont" id="four" style = 'background-color:#6B8E23;color:white;'></div></div></div>
+            <div class="col-lg-1 col-md-12 col-sm-12 col-xs-12 modalHand" data-toggle="modal" data-target="#day5"><div class=""><div class="modalCont" id="five" style = 'background-color:#DA70D6;color:white;'></div></div></div>
+            <div class="col-lg-1 col-md-12 col-sm-12 col-xs-12 modalHand" data-toggle="modal" data-target="#day6"><div class=""><div class="modalCont" id="six" style = 'background-color:#FF6666;color:white;'></div></div></div>
+            <div class="col-lg-1 col-md-12 col-sm-12 col-xs-12 modalHand" data-toggle="modal" data-target="#day7"><div class=""><div class="modalCont" id="seven" style ='background-color:#FF1493;color:white;'></div></div></div>
+            <div class="col-lg-1 col-lg-offset-0"> </div>
+            <div class="col-lg-1 col-lg-offset-0"> </div>
+            <div class="col-lg-1 col-lg-offset-0"> </div>
+          </div>
+          <div class="modal fade" id="day1" role="dialog" aria-labelledby="gridSystemModalLabel">
+            <div class="modal-dialog" role="document">
+
+              <div class="modal-content">
+                <div id="day1Data">
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="modal fade" id="day2" role="dialog" aria-labelledby="gridSystemModalLabel">
+            <div class="modal-dialog" role="document">
+
+              <div class="modal-content" >
+                <div id="day2Data">
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="modal fade" id="day3" role="dialog" aria-labelledby="gridSystemModalLabel">
+            <div class="modal-dialog" role="document">
+
+              <div class="modal-content" >
+                <div id="day3Data">
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="modal fade" id="day4" role="dialog" aria-labelledby="gridSystemModalLabel">
+            <div class="modal-dialog" role="document">
+
+              <div class="modal-content" >
+                <div id="day4Data">
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="modal fade" id="day5" role="dialog" aria-labelledby="gridSystemModalLabel">
+            <div class="modal-dialog" role="document">
+
+              <div class="modal-content" >
+                <div id="day5Data">
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="modal fade" id="day6" role="dialog" aria-labelledby="gridSystemModalLabel">
+            <div class="modal-dialog" role="document">
+
+              <div class="modal-content" >
+                <div id="day6Data">
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <div class="modal fade" id="day7" role="dialog" aria-labelledby="gridSystemModalLabel">
+            <div class="modal-dialog" role="document">
+
+              <div class="modal-content" >
+                <div id="day7Data">
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+  </body>
+  </html>

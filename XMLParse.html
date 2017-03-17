@@ -1,0 +1,157 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+
+<head>
+	<title>Main Page</title>
+	<style>
+		p {
+			text-align: center;
+		}
+
+		form {
+			margin: 0 auto;
+			width: 200px;
+		}
+	</style>
+</head>
+
+<body>
+
+	<p> Enter URL for Company List XML File </p>
+
+	<form name="myForm">
+		<input type="text" id="validate">
+		<br/>
+		<br/>
+		<button onclick="loadXML()">Submit Query</button>
+	</form>
+
+	<script type="text/javascript">
+		function loadXML() {
+
+
+			var result = document.getElementById("validate").value.trim();
+			//alert(result);
+
+			if (result == "") {
+				alert("Text box is empty");
+			} else {
+
+				if (window.XMLHttpRequest) {
+					xhttp = new XMLHttpRequest();
+				} else {
+					xhttp = new ActiveXObject("Microsoft.XMLHTTP");
+				}
+				xhttp.open("GET", result, false);
+
+				xhttp.onreadystatechange = function () {
+					if (xhttp.status == 404) {
+						alert("status " + xhttp.status + " XML does not exist");
+					}
+				}
+
+				xhttp.send();
+				xmlDoc = xhttp.responseXML;
+
+				//xmlDoc.load(result);
+
+				if (xmlDoc.documentElement.nodeName == "parsererror") {
+					errStr = xmlDoc.documentElement.childNodes[0].nodeValue;
+					errStr = errStr.replace(/</g, "&lt;");
+					alert("Error in XML File " + errStr);
+					return;
+				}
+
+
+				var x = xmlDoc.getElementsByTagName("Row");
+
+
+				if (x.length == 0) {
+					alert("Error in XML data - No Cable Network Companies");
+				} else {
+					var myWindow = window.open("", "", "scrollbars=yes, resizable=yes, width=900, height=500");
+					myWindow.document.write("<head><style>table,th,td{border: 3px;border-style: groove;border-color: lightgrey;} th,td {padding: 5px;}</style></head>");
+
+
+					var h = xmlDoc.getElementsByTagName("Header");
+					if (h[0].nodeType == "1") {
+						var counter = h[0].childElementCount;
+						myWindow.document.write("<table><tr>");
+						if (counter > 0) {
+							for (k = 0; k < counter; k++) {
+								myWindow.document.write("<th>");
+
+								if (h[0].getElementsByTagName("Data")[k].childNodes[0] != null && h[0].getElementsByTagName("Data")[k].nodeType == "1") {
+									myWindow.document.write(h[0].getElementsByTagName("Data")[k].childNodes[0].nodeValue);
+
+								}
+								myWindow.document.write("</th>");
+							}
+						}
+						myWindow.document.write("</tr>");
+					}
+
+					for (i = 0; i < x.length; i++) {
+						myWindow.document.write("<tr><td>");
+
+						if (x[i].nodeType == "1") {
+							if (x[i].getElementsByTagName("Network")[0].childNodes[0] != null && x[i].getElementsByTagName("Network")[0].nodeType == "1") {
+								myWindow.document.write(x[i].getElementsByTagName("Network")[0].childNodes[0].nodeValue);
+
+							}
+							myWindow.document.write("</td><td>");
+
+							if (x[i].getElementsByTagName("Owner")[0].childNodes[0] != null && x[i].getElementsByTagName("Owner")[0].nodeType == "1") {
+								myWindow.document.write(x[i].getElementsByTagName("Owner")[0].childNodes[0].nodeValue);
+							}
+							myWindow.document.write("</td><td>");
+
+
+
+							var y = x[i].getElementsByTagName("Feeds");
+							var count = y[0].childElementCount;
+							if (count > 0) {
+								myWindow.document.write("<ul>");
+								for (j = 0; j < count; j++) {
+
+									if (y[0].getElementsByTagName("Feed")[j].childNodes[0] != null && y[0].getElementsByTagName("Feed")[j].nodeType == "1") {
+										myWindow.document.write("<li>");
+										myWindow.document.write(y[0].getElementsByTagName("Feed")[j].childNodes[0].nodeValue);
+										myWindow.document.write("</li>");
+									}
+
+								}
+								myWindow.document.write("</ul>");
+								}
+
+							myWindow.document.write("</td><td>");
+
+							if (x[i].getElementsByTagName("Notes")[0].childNodes[0] != null && x[i].getElementsByTagName("Notes")[0].nodeType == "1") {
+								myWindow.document.write(x[i].getElementsByTagName("Notes")[0].childNodes[0].nodeValue);
+							}
+							myWindow.document.write("</td><td>");
+
+
+							if (x[i].getElementsByTagName("HomePage")[0].childNodes[0] != null && x[i].getElementsByTagName("HomePage")[0].nodeType == "1") {
+								myWindow.document.write("<a href = ' " + x[i].getElementsByTagName("HomePage")[0].childNodes[0].nodeValue + " '> " + x[i].getElementsByTagName("HomePage")[0].childNodes[0].nodeValue + "</a>");
+							}
+							myWindow.document.write("</td><td>");
+
+
+							if (x[i].getElementsByTagName("Logo")[0].childNodes[0] != null && x[i].getElementsByTagName("Logo")[0].nodeType == "1") {
+								myWindow.document.write("<img src = ' " + x[i].getElementsByTagName("Logo")[0].childNodes[0].nodeValue + " '/>");
+							}
+							myWindow.document.write("</td></tr>");
+
+						}
+					}
+					myWindow.document.write("</table>");
+
+				}
+			}
+		}
+	</script>
+	<noscript>
+</body>
+
+</html>
